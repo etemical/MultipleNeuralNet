@@ -74,9 +74,7 @@ class Functional:
         def advice(*args):
             Module.addLayer(fn) #  把计算操作步骤项添加到计算图里
             return fn(*args)
-
         return advice
-
 
     @classmethod
     @OperGraph("sigmoid")
@@ -96,6 +94,20 @@ class Functional:
         return s
 
     @classmethod
+    @OperGraph("softmax")
+    def softmax(cls, z):
+        """
+        找出z中每列对应的最大值
+        然后各个列减去对应维度的最大值以达到缩小softmax指数运算的结果
+        太大计算机会显示NaN
+        :param z:
+        :return:
+        """
+        max = np.max(z, axis=0, keepdims=True)
+        a = np.divide(np.exp(z-max) , np.sum(np.exp(z-max), axis=0))
+        return a
+
+    @classmethod
     def sigmoid_grad(cls, a):
         return a * (1 - a)
 
@@ -110,7 +122,32 @@ class Functional:
         return t
 
     @classmethod
-    def getNode_grad(cls, node, *next_layer_input):
+    def softmax_grad(cls, a, Y):
+        """
+        j为输出，i为输入
+        DiSj 表示为第j个输出对i个输入的导数
+        如果j==i， DiSj=Aj*(1-Aj)
+        如果j!=i,  DiSj=-Aj*Ai
+        要分段求，比较繁琐
+        :param a: softmax的输出，一组向量
+        :param Y: 标签 一组向量（一般而言由1和0组成的）
+        :return: softmax的梯度
+        """
+
+        j = np.argmax(Y, axis=0)
+        grads = np.zeros_like(a).T
+        a = a.T
+        #  找出每个样本最大值对应的输出
+        Aj = a[np.arange(0, a.shape[0]), j]
+        # 当j不等于i的时候
+        grads = -a * Aj.reshape(-1,1)
+        # 当j等于i的时候
+        grads[np.arange(0, grads.shape[0]) , j] = Aj * (1. - Aj)
+        return grads.T
+
+
+    @classmethod
+    def getNode_grad(cls, node, *next_layer_input, Y):
         if isinstance(node ,str):
             if node == "sigmoid":
                 return cls.sigmoid_grad(*next_layer_input)
@@ -118,9 +155,11 @@ class Functional:
                 return cls.relu_grad(*next_layer_input)
             elif node == "tanh":
                 return cls.tanh_grad(*next_layer_input)
+            elif node == "softmax":
+                return cls.softmax_grad(*next_layer_input, Y)
+
         if isinstance(node, Module):
             return 1
-
 
 
 if __name__ == '__main__':
@@ -130,5 +169,47 @@ if __name__ == '__main__':
     print(isfunction(Module._Module__layers[0]))
     print(hasattr(Module._Module__layers[0],"__call__"))
     print(Module._Module__layers[0], Module._Module__cache_input[0])
+    z = np.arange(10)
 
+    a = Functional.softmax(z)
+    a = a.round(6)
+    print(a.round(6))
+    print(np.argmax(a))
+    y = np.array([0,0,0,0,0,0,0,0,0,1])
+
+
+
+
+    z2 = np.random.rand(10)
+    z2 = np.array([0.12410648, 0.11217966, 0.0664022,  0.12460169, 0.11754158, 0.0776272,0.05509569, 0.10349527,0.14481626, 0.07413397])
+
+
+    a2 = Functional.softmax(z2)
+
+    a3 = np.zeros((2,10))
+    a3[0] = a
+    a3[1] = a2
+
+    print(np.argmax(a2))
+    y2 = np.array([0,0,1,0,0,0,0,0,1,0])
+    y3 = np.zeros((2,10))
+    y3[0] = y
+    y3[1] = y2
+    print(a3)
+    print(y3)
+
+    # 2.5266892886538392
+    loss = -np.sum(y3*np.log(a3)) / 2
+    print(loss)
+
+
+    a = np.array([[0.2, 0.1, 0.9], [0.3, 0.4, 0.6]], dtype=np.float32)
+    y = np.array([[0, 0, 1], [1, 0, 0]], dtype=np.float32)
+    loss = -np.sum(y*np.log(a)) / 2
+    print(loss)
+    loss = np.sum(-np.sum(np.log(a), axis=1) / 3) / 2
+
+    print(loss)
+    print(-np.sum(np.log(a), axis=1))
+    print(sum([4.0173836/3. ,2.6310892/3.]) / 2)
     pass
