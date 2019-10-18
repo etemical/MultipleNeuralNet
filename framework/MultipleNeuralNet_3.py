@@ -116,7 +116,11 @@ class BCELoss(Module):
         多层网络反向传播的核心代码
         这里可以是任意数量的网络层，从最后一层开始反向求导
         从后往前一层层计算梯度，采用链式法则
+<<<<<<< HEAD
         :return: grads 字典（每层的梯度）
+=======
+        :return: grads 字典
+>>>>>>> 85f00821fe124de1a29900784020c97b437fffae
         """
 
         nodes = self.parameters()
